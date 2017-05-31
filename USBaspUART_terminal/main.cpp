@@ -125,7 +125,7 @@ int main(int argc, char** argv){
 	int parity=USBASP_UART_PARITY_NONE;
 	int bits=USBASP_UART_BYTES_8B;
 	int stop=USBASP_UART_STOP_1BIT;
-	
+	 
 	bool should_test_read=false;
 	bool should_test_write=false;
 	bool should_read=false;
