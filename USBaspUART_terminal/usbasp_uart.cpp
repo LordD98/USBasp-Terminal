@@ -20,9 +20,11 @@ static int usbasp_uart_transmit(USBasp_UART* usbasp, uint8_t receive,
 
 static uint8_t dummy[4];
 
-int usbasp_uart_config(USBasp_UART* usbasp, int baud, int flags){
-	if(usbasp_uart_open(usbasp) != 0){
-		return -1;
+int usbasp_uart_config(USBasp_UART* usbasp, int baud, int flags)
+{
+	if(int errorcode = usbasp_uart_open(usbasp) != 0)
+	{
+		return -errorcode;
 	}
 	uint32_t caps=usbasp_uart_capabilities(usbasp);
 	printf("Capabilities: %x\n", caps);							//modified
@@ -70,10 +72,11 @@ int usbasp_uart_write(USBasp_UART* usbasp, uint8_t* buff, size_t len){
 	if(len>avail){
 		len=avail;
 	}
-	std::cout << "Received free= " << avail << ", transmitting " << len << "bytes" << std::endl;
+	std::cout << "Received free= " << avail << ", transmitting " << len << " bytes" << std::endl;
 	if(len==0){
 		return 0;
 	}
+	//std::cout << std::endl << (int)buff[0] << std::endl;
 	return usbasp_uart_transmit(usbasp, 0, USBASP_FUNC_UART_TX, dummy, buff, len);
 }
 
