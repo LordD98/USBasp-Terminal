@@ -6,8 +6,14 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <limits>
 
 int verbose=0;
+bool sendNewline = false;
+bool single_byte_mode;
+bool single_char;
+
+#define USB_ERROR_NOTFOUND 1
 
 void writeTest(USBasp_UART* usbasp, int size){
 	std::string s;
@@ -63,19 +69,54 @@ void readTest(USBasp_UART* usbasp, size_t size){
 }
 
 void read_forever(USBasp_UART* usbasp){
-	while(1){
-		uint8_t buff[300];
-		int rv=usbasp_uart_read(usbasp, buff, sizeof(buff));
-		if(rv<0){
-			std::cerr << "read: rv=" << rv << std::endl;
-			return;
-		}
-		else if (rv != 0)
+	if (single_byte_mode)
+	{
+		while (1)
 		{
-			for (int i = 0; i < rv; i++) {
-				std::cout << buff[i];
+			uint8_t buff[300];
+			int rv = usbasp_uart_read(usbasp, buff, sizeof(buff));
+			if (rv < 0) {
+				std::cerr << "read: rv=" << rv << std::endl;
+				return;
 			}
-			std::cout << std::endl;
+			else if (rv != 0)
+			{
+				for (int i = 0; i < rv; i++)
+				{
+					std::cout << (int)buff[i];
+					if (buff[i] == '\0')
+						std::cout << ": '\\0'" << std::endl;
+					else if (buff[i] == '\n')
+						std::cout << ": '\\n'" << std::endl;
+					else if (buff[i] < 32 || buff[i] > 126)
+						std::cout << std::endl;
+					else
+						std::cout << ": '" << buff[i] << "'" << std::endl;
+				}
+				//std::cout << std::endl;
+			}
+		}
+	} 
+	else
+	{
+		while(1){
+			uint8_t buff[300];
+			int rv=usbasp_uart_read(usbasp, buff, sizeof(buff));
+			if(rv<0){
+				std::cerr << "read: rv=" << rv << std::endl;
+				return;
+			}
+			else if (rv != 0)
+			{
+				for (int i = 0; i < rv; i++)
+				{
+					if (!buff[i] == '\0')
+						std::cout << buff[i];
+					else
+						std::cout << std::endl;
+				}
+				//std::cout << std::endl;
+			}
 		}
 	}
 }
@@ -83,16 +124,49 @@ void read_forever(USBasp_UART* usbasp){
 void write_forever(USBasp_UART* usbasp){
 	std::string line;
 	char buff[1024];
-	while(1){
-		std::cin.getline(buff, 1024);
-		int rv = strlen(buff) + 1;		//count chars, including '\0'
-		if(rv==0){ return; }
-		else if(rv<0){
-			std::cerr << "write: read from stdin returned %d\n" << rv;
-			return;
+	if (single_byte_mode)
+	{
+		while (1)
+		{
+			if (single_char)
+			{
+				char c;
+				std::cin >> c;
+				std::cin.getline(buff, 1024);
+				usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&c), 1);
+			}
+			else
+			{
+				int i;
+				std::cin >> i;
+				std::cin.getline(buff, 1024);
+				usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&i), 1);
+			}
 		}
-		else{
-			usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&buff[0]), rv);
+	} 
+	else
+	{
+		while(1)
+		{
+			std::cin.getline(buff, 1024);
+			int rv = strlen(buff) + 1;		//count chars, including '\0'
+	
+			if(rv==0){ return; }
+			else if(rv<0)
+			{
+				std::cerr << "write: read from stdin returned %d\n" << rv;
+				return;
+			}
+			else
+			{
+				if (sendNewline)
+				{
+					buff[rv] = '\r';			//add CR
+					buff[rv + 1] = '\n';		//and NL to end of string
+					rv += 2;
+				}
+				usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&buff[0]), rv);
+			}
 		}
 	}
 }
@@ -125,11 +199,13 @@ int main(int argc, char** argv){
 	int parity=USBASP_UART_PARITY_NONE;
 	int bits=USBASP_UART_BYTES_8B;
 	int stop=USBASP_UART_STOP_1BIT;
-	
+	 
 	bool should_test_read=false;
 	bool should_test_write=false;
 	bool should_read=false;
-	bool should_write=false;
+	bool should_write = false;
+	single_byte_mode = false;
+	single_char = false;
 	int test_size=(10*1024);
 
 	//opterr=0;
@@ -142,7 +218,7 @@ int main(int argc, char** argv){
 		if (strcmp(argv[i], "-rw") == 0)
 		{
 			should_write = true;
-			//should_read = true;
+			should_read = true;
 			i++;
 			continue;
 		}
@@ -152,7 +228,24 @@ int main(int argc, char** argv){
 			baud = std::stoi(buf);
 			i += 2;
 			continue;
-		} 
+		}
+		else if (strcmp(argv[i], "-nl") == 0)
+		{
+			sendNewline = true;
+			i++;
+		}
+		else if (strcmp(argv[i], "-sbm") == 0)
+		{
+			single_byte_mode = true;
+			i ++;
+			continue;
+		}
+		else if (strcmp(argv[i], "-sc") == 0)
+		{
+			single_char = true;
+			i++;
+			continue;
+		}
 		else if(strcmp(argv[i], "") == 0)
 		{
 		}
@@ -219,12 +312,23 @@ int main(int argc, char** argv){
 	*/
 
 	USBasp_UART usbasp;
+	usbasp.usbhandle = NULL;
 	int rv;
 	if((rv=usbasp_uart_config(&usbasp, baud, parity | bits | stop)) < 0){
 		std::cerr << "Error " << rv << " while initializing USBasp" << std::endl;
-		if(rv==USBASP_NO_CAPS){
+		switch (rv)
+		{
+		case USBASP_NO_CAPS:
 			std::cerr << "USBasp has no UART capabilities." << std::endl;
+			break;
+		case -USB_ERROR_NOTFOUND:
+			std::cerr << "Cannot find USBasp device." << std::endl;
+			break;
+		default:
+			break;
 		}
+		std::cout << "Press enter to exit" << std::endl;
+		std::cin.get();
 		return -1;
 	}
 	if(should_test_write){

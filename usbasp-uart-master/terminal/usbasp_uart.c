@@ -1,7 +1,8 @@
-
 #include "usbasp_uart.h"
-#include <iostream>
-#include <cstdint>
+
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 
 #define USB_ERROR_NOTFOUND 1
 #define USB_ERROR_ACCESS   2
@@ -10,7 +11,7 @@
 #define	USBASP_SHARED_VID  0x16C0
 #define	USBASP_SHARED_PID  0x05DC
 
-//#define dprintf(...) if(verbose>0){fprintf(stderr,__VA_ARGS__);}
+#define dprintf(...) if(verbose>0){fprintf(stderr,__VA_ARGS__);}
 
 static int usbasp_uart_open(USBasp_UART* usbasp);
 static uint32_t usbasp_uart_capabilities(USBasp_UART* usbasp);
@@ -20,22 +21,20 @@ static int usbasp_uart_transmit(USBasp_UART* usbasp, uint8_t receive,
 
 static uint8_t dummy[4];
 
-int usbasp_uart_config(USBasp_UART* usbasp, int baud, int flags)
-{
-	if(int errorcode = usbasp_uart_open(usbasp) != 0)
-	{
-		return -errorcode;
+int usbasp_uart_config(USBasp_UART* usbasp, int baud, int flags){
+	if(usbasp_uart_open(usbasp) != 0){
+		return -1;
 	}
 	uint32_t caps=usbasp_uart_capabilities(usbasp);
-	printf("Capabilities: %x\n", caps);							//modified
+	dprintf("Capabilities: %x\n", caps);
 	if(!(caps & USBASP_CAP_6_UART)){
 		return USBASP_NO_CAPS;
 	}
 	uint8_t send[4];
 
-	const int FOSC=F_CPU;
+	const int FOSC=12000000;
 	int presc=FOSC/8/baud - 1;
-	printf("Baud prescaler: %d\n", presc);							//modified
+	dprintf("Baud prescaler: %d\n", presc);
 	int real_baud=FOSC/8/(presc+1);
 	if(real_baud!=baud){
 		fprintf(stderr, "Note: cannot select baud=%d, selected %d instead.\n", baud, real_baud);
@@ -72,11 +71,10 @@ int usbasp_uart_write(USBasp_UART* usbasp, uint8_t* buff, size_t len){
 	if(len>avail){
 		len=avail;
 	}
-	std::cout << "Received free= " << avail << ", transmitting " << len << " bytes" << std::endl;
+	dprintf("Received free=%zu, transmitting %zu bytes\n", avail, len);
 	if(len==0){
 		return 0;
 	}
-	//std::cout << std::endl << (int)buff[0] << std::endl;
 	return usbasp_uart_transmit(usbasp, 0, USBASP_FUNC_UART_TX, dummy, buff, len);
 }
 
@@ -84,19 +82,14 @@ int usbasp_uart_write_all(USBasp_UART* usbasp, uint8_t* buff, int len){
 	int i=0;
 	while(i<len){
 		int rv=usbasp_uart_write(usbasp, buff+i, len-i);
-		if(rv<0)
-		{
-			std::cout << "write_all: rv=" << rv << std::endl;
-			return rv; 
-		}
+		if(rv<0){ dprintf("write_all: rv=%d\n", rv); return rv; }
 		i+=rv;
-		std::cout << "write_all: "<< i << "/" << len << " sent" << std::endl;
+		dprintf("write_all: %d/%d sent\n", i, len);
 	}
 	return len;
 }
 
 int usbasp_uart_open(USBasp_UART* usbasp){
-	
 	int errorCode = USB_ERROR_NOTFOUND;
 
 	libusb_context* ctx;
@@ -124,7 +117,7 @@ int usbasp_uart_open(USBasp_UART* usbasp){
 				usbasp->usbhandle=NULL;
 				continue;
 			}
-			printf("Vendor: %s\n", str);							//modified
+			dprintf("Vendor: %s\n", str);
 			libusb_get_string_descriptor_ascii(usbasp->usbhandle, 
 					descriptor.iProduct & 0xff, str, sizeof(str));
 			if(strcmp("USBasp", (const char*)str)){
@@ -132,7 +125,7 @@ int usbasp_uart_open(USBasp_UART* usbasp){
 				usbasp->usbhandle=NULL;
 				continue;
 			}
-			printf("Product: %s\n", str);							//modified
+			dprintf("Product: %s\n", str);
 			break;
 		}
 	}
