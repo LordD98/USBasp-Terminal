@@ -82,7 +82,8 @@ int usbasp_uart_write(USBasp_UART* usbasp, uint8_t* buff, size_t len){
 
 int usbasp_uart_write_all(USBasp_UART* usbasp, uint8_t* buff, int len){
 	int i=0;
-	while(i<len){
+	while(i<len)
+	{
 		int rv=usbasp_uart_write(usbasp, buff+i, len-i);
 		if(rv<0)
 		{
@@ -143,7 +144,8 @@ int usbasp_uart_open(USBasp_UART* usbasp){
 	return errorCode;
 }
 
-uint32_t usbasp_uart_capabilities(USBasp_UART* usbasp){
+uint32_t usbasp_uart_capabilities(USBasp_UART* usbasp)
+{
 	uint8_t res[4];
 	uint8_t tmp[4];
 	uint32_t ret=0;
