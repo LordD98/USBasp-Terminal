@@ -8,7 +8,6 @@
 #include <iostream>
 #include <limits>
 
-<<<<<<< HEAD
 bool verbose = false;
 bool sendNewline = false;
 bool single_byte_mode;
@@ -18,12 +17,6 @@ bool closeConnectionOnError = true;
 #define USB_ERROR_NOTFOUND 1
 
 using namespace std;
-=======
-int verbose=0;
-bool sendNewline = false;
-
-#define USB_ERROR_NOTFOUND 1
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 
 void writeTest(USBasp_UART* usbasp, int size){
 	std::string s;
@@ -111,7 +104,6 @@ void read_forever(USBasp_UART* usbasp){
 	{
 		while(1)
 		{
-<<<<<<< HEAD
 			uint8_t buff[300];
 			int rv=usbasp_uart_read(usbasp, buff, sizeof(buff));
 			if(rv<0)
@@ -131,16 +123,6 @@ void read_forever(USBasp_UART* usbasp){
 				}
 				//std::cout << std::endl;
 			}
-=======
-			for (int i = 0; i < rv; i++)
-			{
-				if (!buff[i] == '\0')
-					std::cout << buff[i];
-				else
-					std::cout << std::endl;
-			}
-			//std::cout << std::endl;
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 		}
 	}
 }
@@ -148,7 +130,6 @@ void read_forever(USBasp_UART* usbasp){
 void write_forever(USBasp_UART* usbasp){
 	std::string line;
 	char buff[1024];
-<<<<<<< HEAD
 	if (single_byte_mode)
 	{
 		while (1)
@@ -193,27 +174,6 @@ void write_forever(USBasp_UART* usbasp){
 				}
 				usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&buff[0]), rv);
 			}
-=======
-	while(1){
-		std::cin.getline(buff, 1024);
-		int rv = strlen(buff) + 1;		//count chars, including '\0'
-
-		if(rv==0){ return; }
-		else if(rv<0)
-		{
-			std::cerr << "write: read from stdin returned %d\n" << rv;
-			return;
-		}
-		else
-		{
-			if (sendNewline)
-			{
-				buff[rv] = '\r';			//add CR
-				buff[rv + 1] = '\n';		//and NL to end of string
-				rv += 2;
-			}
-			usbasp_uart_write_all(usbasp, reinterpret_cast<uint8_t*>(&buff[0]), rv);
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 		}
 	}
 }
@@ -237,29 +197,12 @@ void usage(const char* name)
 	std::cerr << "If you want to use it as interactive terminal, use " << name << " -rw -b 9600" << std::endl;
 }
 
-<<<<<<< HEAD
 int main(int argc, char** argv)
 {
 	int baud = 9600;
 	int parity = USBASP_UART_PARITY_NONE;
 	int bits = USBASP_UART_BYTES_8B;
 	int stop = USBASP_UART_STOP_1BIT;
-=======
-int main(int argc, char** argv){
-	if(argc==1){
-		usage(argv[0]);
-	}
-	int baud=9600;
-	int parity=USBASP_UART_PARITY_NONE;
-	int bits=USBASP_UART_BYTES_8B;
-	int stop=USBASP_UART_STOP_1BIT;
-	 
-	bool should_test_read=false;
-	bool should_test_write=false;
-	bool should_read=false;
-	bool should_write=false;
-	int test_size=(10*1024);
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 
 	volatile bool should_test_read = false;
 	volatile bool should_test_write = false;
@@ -294,7 +237,6 @@ int main(int argc, char** argv){
 
 		for (int i = 0; i < argc; i++)
 		{
-<<<<<<< HEAD
 			if (strcmp(argv[i], "-skipOptions") == 0)
 			{
 				skipOptions = true;
@@ -393,35 +335,15 @@ int main(int argc, char** argv){
 					verbose = true;
 				}
 			}
-=======
-			should_write = true;
-			should_read = true;
-			i++;
-			continue;
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 		}
 	}
 
 	auto stob = [](string s) -> bool {
 		if (s == "0" || s == "false")
 		{
-<<<<<<< HEAD
 			return false;
 		}
 		else
-=======
-			char *buf = argv[i + 1];
-			baud = std::stoi(buf);
-			i += 2;
-			continue;
-		}
-		else if (strcmp(argv[i], "-nl") == 0)
-		{
-			sendNewline = true;
-			i++;
-		}
-		else if(strcmp(argv[i], "") == 0)
->>>>>>> 6a3f31f3d941c44995f3aa38894d19c1b2868d9d
 		{
 			return true;
 		}

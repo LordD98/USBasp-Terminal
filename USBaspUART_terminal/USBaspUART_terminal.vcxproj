@@ -77,10 +77,6 @@
     <IncludePath>C:\Users\s-del\Desktop\libusb\include\libusb-1.0;C:\Users\s-del\Documents\Visual Studio 2017\Projects\USBasp-Terminal\usbasp-uart-master\firmware;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\s-del\Desktop\libusb\MS32\dll;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>G:\Users\Serverin Delhey\Desktop\Severins Ordner\Programmieren\C++\libusb-1.0.21\include\libusb-1.0;G:\s-del\Documents\Atmel Studio\7.0\USBasp\USBasp uC AG;$(IncludePath)</IncludePath>
-    <LibraryPath>G:\Users\Serverin Delhey\Desktop\Severins Ordner\Programmieren\C++\libusb-1.0.21\MS32\dll;$(LibraryPath)</LibraryPath>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
