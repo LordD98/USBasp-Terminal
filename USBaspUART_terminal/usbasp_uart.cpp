@@ -72,8 +72,10 @@ int usbasp_uart_write(USBasp_UART* usbasp, uint8_t* buff, size_t len){
 	if(len>avail){
 		len=avail;
 	}
-	std::cout << "Received free= " << avail << ", transmitting " << len << " bytes" << std::endl;
-	if(len==0){
+	if(verbose)
+		std::cout << "Received free= " << avail << ", transmitting " << len << " bytes" << std::endl;
+	if(len==0)
+	{
 		return 0;
 	}
 	//std::cout << std::endl << (int)buff[0] << std::endl;
@@ -91,7 +93,8 @@ int usbasp_uart_write_all(USBasp_UART* usbasp, uint8_t* buff, int len){
 			return rv; 
 		}
 		i+=rv;
-		std::cout << "write_all: "<< i << "/" << len << " sent" << std::endl;
+		if (verbose)
+			std::cout << "write_all: "<< i << "/" << len << " sent" << std::endl;
 	}
 	return len;
 }

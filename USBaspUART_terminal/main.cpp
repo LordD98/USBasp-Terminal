@@ -8,16 +8,15 @@
 #include <iostream>
 #include <limits>
 
-int verbose=0;
+bool verbose = false;
 bool sendNewline = false;
 bool single_byte_mode;
 bool single_char;
+bool closeConnectionOnError = true;
 
 #define USB_ERROR_NOTFOUND 1
 
 using namespace std;
-
-string btos(bool b);
 
 void writeTest(USBasp_UART* usbasp, int size){
 	std::string s;
@@ -110,16 +109,17 @@ void read_forever(USBasp_UART* usbasp){
 			if(rv<0)
 			{
 				std::cerr << "read: rv=" << rv << std::endl;
-				return;
+				if(closeConnectionOnError)
+					return;
 			}
 			else if (rv != 0)
 			{
 				for (int i = 0; i < rv; i++)
 				{
-					if (!buff[i] == '\0')
+					if (buff[i] != '\0')
 						std::cout << buff[i];
-					else
-						std::cout << std::endl;
+					//else
+						//std::cout << std::endl;
 				}
 				//std::cout << std::endl;
 			}
@@ -161,7 +161,8 @@ void write_forever(USBasp_UART* usbasp){
 			else if(rv<0)
 			{
 				std::cerr << "write: read from stdin returned %d\n" << rv;
-				return;
+				if (closeConnectionOnError)
+					return;
 			}
 			else
 			{
@@ -194,210 +195,195 @@ void usage(const char* name)
 	std::cerr << "  -v        increase verbosity" << std::endl;
 	std::cerr << std::endl;
 	std::cerr << "If you want to use it as interactive terminal, use " << name << " -rw -b 9600" << std::endl;
-	exit(0);
 }
 
-int main(int argc, char** argv){
-	if(argc==1){
-		usage(argv[0]);
-	}
-	int baud=9600;
-	int parity=USBASP_UART_PARITY_NONE;
-	int bits=USBASP_UART_BYTES_8B;
-	int stop=USBASP_UART_STOP_1BIT;
-	 
-	bool should_test_read=false;
-	bool should_test_write=false;
-	bool should_read=false;
+int main(int argc, char** argv)
+{
+	int baud = 9600;
+	int parity = USBASP_UART_PARITY_NONE;
+	int bits = USBASP_UART_BYTES_8B;
+	int stop = USBASP_UART_STOP_1BIT;
+
+	volatile bool should_test_read = false;
+	volatile bool should_test_write = false;
+	bool should_read = false;
 	bool should_write = false;
 	bool skipOptions = false;
 	single_byte_mode = false;
 	single_char = false;
-	int test_size=(10*1024);
+	int test_size = (10 * 1024);
 
-	//opterr=0;
-	
-	//int c;
-	
-	/*
-	Select Baud:
-	------------------
-	0		1		2		3		4
-	2400	4800	9600	14400	115200
-	input: x
-
-	Select Parity:
-	------------------
-	e		o		n
-	Even	Odd		None
-	input: x
-	------------------
-	to end press ctrl-c
-	*/
-
-	int i = 0;
-	
-	while (i < argc)
+	if (argc == 1)
 	{
-		if (strcmp(argv[i], "-skipOptions") == 0)
+		//usage(argv[0]);
+	}
+	else
+	{
+		/*
+		Select Baud:
+		------------------
+		0		1		2		3		4
+		2400	4800	9600	14400	115200
+		input: x
+
+		Select Parity:
+		------------------
+		e		o		n
+		Even	Odd		None
+		input: x
+		------------------
+		to end press ctrl-c
+		*/
+
+		for (int i = 0; i < argc; i++)
 		{
-			skipOptions = true;
-		}
-		if (strcmp(argv[i], "-rw") == 0)
-		{
-			should_write = true;
-			should_read = true;
-			i++;
-			continue;
-		}
-		else if (strcmp(argv[i], "-b") == 0)
-		{
-			char *buf = argv[i + 1];
-			baud = std::stoi(buf);
-			i += 2;
-			continue;
-		}
-		else if (strcmp(argv[i], "-nl") == 0)
-		{
-			sendNewline = true;
-			i++;
-		}
-		else if (strcmp(argv[i], "-sbm") == 0)
-		{
-			single_byte_mode = true;
-			i ++;
-			continue;
-		}
-		else if (strcmp(argv[i], "-sc") == 0)
-		{
-			single_char = true;
-			i++;
-			continue;
-		}
-		else if (strcmp(argv[i], "-p") == 0)
-		{
-			//sscanf(argv[i+1], "%d", &parity);
-			switch (parity) 
+			if (strcmp(argv[i], "-skipOptions") == 0)
 			{
-			case 0:	parity = USBASP_UART_PARITY_NONE;	break;
-			case 1:	parity = USBASP_UART_PARITY_EVEN;	break;
-			case 2:	parity = USBASP_UART_PARITY_ODD;	break;
-			default: std::cerr << "Bad parity, falling back to default." << std::endl;
+				skipOptions = true;
 			}
-			i+=2;
-		}
-		else if (strcmp(argv[i], "-B") == 0)
-		{
-			//sscanf(argv[i + 1], "%d", &bits);
-			switch (bits) 
+			if (strcmp(argv[i], "-rw") == 0)
 			{
-			case 5:	bits = USBASP_UART_BYTES_5B;	break;
-			case 6:	bits = USBASP_UART_BYTES_6B;	break;
-			case 7:	bits = USBASP_UART_BYTES_7B;	break;
-			case 8:	bits = USBASP_UART_BYTES_8B;	break;
-			case 9:	bits = USBASP_UART_BYTES_9B;	break;
-			default: std::cerr << "Bad byte size, falling back to default." << std::endl;
+				should_write = true;
+				should_read = true;
+				i++;
+				continue;
 			}
-			i += 2;
-		}
-		else if (strcmp(argv[i], "-s") == 0)
-		{
-			stop = stoi(argv[i+1]);
-			switch (stop)
+			else if (strcmp(argv[i], "-b") == 0)
 			{
-			case 1: stop = USBASP_UART_STOP_1BIT;	break;
-			case 2: stop = USBASP_UART_STOP_2BIT;	break;
-			default: std::cerr << "Bad stop bit count, falling back to default." << std::endl;
+				char *buf = argv[i + 1];
+				baud = std::stoi(buf);
+				i += 2;
+				continue;
+			}
+			else if (strcmp(argv[i], "-nl") == 0)
+			{
+				sendNewline = true;
+				i++;
+			}
+			else if (strcmp(argv[i], "-sbm") == 0)
+			{
+				single_byte_mode = true;
+				i++;
+				continue;
+			}
+			else if (strcmp(argv[i], "-sc") == 0)
+			{
+				single_char = true;
+				i++;
+				continue;
+			}
+			else if (strcmp(argv[i], "-p") == 0)
+			{
+				//sscanf(argv[i+1], "%d", &parity);
+				switch (parity)
+				{
+				case 0:	parity = USBASP_UART_PARITY_NONE;	break;
+				case 1:	parity = USBASP_UART_PARITY_EVEN;	break;
+				case 2:	parity = USBASP_UART_PARITY_ODD;	break;
+				default: std::cerr << "Bad parity, falling back to default." << std::endl;
+				}
+				i += 2;
+			}
+			else if (strcmp(argv[i], "-B") == 0)
+			{
+				//sscanf(argv[i + 1], "%d", &bits);
+				switch (bits)
+				{
+				case 5:	bits = USBASP_UART_BYTES_5B;	break;
+				case 6:	bits = USBASP_UART_BYTES_6B;	break;
+				case 7:	bits = USBASP_UART_BYTES_7B;	break;
+				case 8:	bits = USBASP_UART_BYTES_8B;	break;
+				case 9:	bits = USBASP_UART_BYTES_9B;	break;
+				default: std::cerr << "Bad byte size, falling back to default." << std::endl;
+				}
+				i += 2;
+			}
+			else if (strcmp(argv[i], "-s") == 0)
+			{
+				stop = stoi(argv[i + 1]);
+				switch (stop)
+				{
+				case 1: stop = USBASP_UART_STOP_1BIT;	break;
+				case 2: stop = USBASP_UART_STOP_2BIT;	break;
+				default: std::cerr << "Bad stop bit count, falling back to default." << std::endl;
+				}
+			}
+			else if (strcmp(argv[i], "") == 0)
+			{
+				i++;
+			}
+			else
+			{
+				if (strstr(argv[i], "r") != NULL)
+				{
+					should_read = true;
+				}
+				if (strstr(argv[i], "w") != NULL)
+				{
+					should_write = true;
+				}
+				if (strstr(argv[i], "R") != NULL)
+				{
+					should_test_read = true;
+				}
+				if (strstr(argv[i], "W") != NULL)
+				{
+					should_test_write = true;
+				}
+				if (strstr(argv[i], "v") != NULL)
+				{
+					verbose = true;
+				}
 			}
 		}
-		else if(strcmp(argv[i], "") == 0)
+	}
+
+	auto stob = [](string s) -> bool {
+		if (s == "0" || s == "false")
 		{
-			i++;
+			return false;
 		}
 		else
 		{
-			if (strstr(argv[i], "r") != NULL)
-			{
-				should_read = true;
-			}
-			if (strstr(argv[i], "w") != NULL)
-			{
-				should_write = true;
-			}
-			if (strstr(argv[i], "R") != NULL)
-			{
-				should_test_read = true;
-			}
-			if (strstr(argv[i], "W") != NULL)
-			{
-				should_test_write = true;
-			}
-			if (strstr(argv[i], "v") != NULL)
-			{
-				verbose++;
-			}
-			i++;
+			return true;
 		}
-	}
+	};
 
-	/*
-	while( (c=getopt(argc, argv, "rwRWS:b:p:B:s:v"))!=-1){
-		switch(c){
-		case 'r':
-			should_read=true;
-			break;
-		case 'w':
-			should_write=true;
-			break;
-		case 'R':
-			should_test_read=true;
-			break;
-		case 'W':
-			should_test_write=true;
-			break;
-		case 'S':
-			sscanf(optarg, "%d", &test_size);
-			break;
-		case 'b':
-			sscanf(optarg, "%d", &baud);
-			break;
-		case 'p':
-			sscanf(optarg, "%d", &parity);
-			switch(parity){
-			default: fprintf(stderr, "Bad parity, falling back to default.\n");
-			case 0:	parity=USBASP_UART_PARITY_NONE;	break;
-			case 1:	parity=USBASP_UART_PARITY_EVEN;	break;
-			case 2:	parity=USBASP_UART_PARITY_ODD ;	break;
-			}
-			break;
-		case 'B':
-			sscanf(optarg, "%d", &bits);
-			switch(bits){
-			case 5:	bits=USBASP_UART_BYTES_5B;	break;
-			case 6:	bits=USBASP_UART_BYTES_6B;	break;
-			case 7:	bits=USBASP_UART_BYTES_7B;	break;
-			default: fprintf(stderr, "Bad byte size, falling back to default.\n");
-			case 8:	bits=USBASP_UART_BYTES_8B;	break;
-			case 9:	bits=USBASP_UART_BYTES_9B;	break;
-			}
-			break;
-		case 's':
-			sscanf(optarg, "%d", &stop);
-			switch(stop){
-			default: fprintf(stderr, "Bad stop bit count, falling back to default.\n");
-			case 1: stop=USBASP_UART_STOP_1BIT;	break;
-			case 2: stop=USBASP_UART_STOP_2BIT;	break;
-			}
-			break;
-		case 'v':
-			verbose++;
-			break;
-		default:
-			usage(argv[0]);
-			break;
-		}
+	fstream settings;
+	settings.open("settings.txt", ios::in | ios::out);
+	string line;
+	int num;
+
+	if (settings.is_open())
+	{
+		getline(settings, line);	//Baud
+		baud = stoi(line);
+		getline(settings, line);	//Parity
+		parity = stoi(line);
+		getline(settings, line);	//Stop bits
+		stop = stoi(line);
+		getline(settings, line);	//Data bits
+		bits = stoi(line);
+		getline(settings, line);	//Single byte
+		single_byte_mode = stob(line);
+		getline(settings, line);	//Read cont.
+		should_read = stob(line);
+		getline(settings, line);	//Write cont.
+		should_write = stob(line);
+		getline(settings, line);	//Send '\n'
+		sendNewline = stob(line);
+		getline(settings, line);	//Single char
+		single_char = stob(line);
+		getline(settings, line);	//Verbose
+		verbose = stob(line);
+		getline(settings, line);	//Test read
+		should_test_read = stob(line);
+		getline(settings, line);	//Test write
+		should_test_write = stob(line);
+		getline(settings, line);	//Close connection when an error occurs
+		closeConnectionOnError = stob(line);
+		settings.close();
 	}
-	*/
 
 	if (!skipOptions)
 	{
@@ -408,10 +394,9 @@ int main(int argc, char** argv){
 		option = 0;
 		cout << "Do you want to have extended options? Y/N/ENTER(to skip completely) ";
 		option = cin.get();
-		if (option == '\n')
-			//no options, use default settings
+		if (option == '\n')		//no options, use default settings
 			cout << endl;
-		else
+		else					//show options
 		{
 			cout << endl;
 			cin.get();
@@ -482,17 +467,15 @@ int main(int argc, char** argv){
 			{
 				//extended options:
 				int input;
-			EXTENDED_MENU_START:
-				input = 0;
-				//print all options:
-				cout << "All extended options:" << endl
-					<< "Pick a listed number, Bools and Ints with only two options get toggled directly!" << endl
-					<< endl
-					<< "Number\t| Type |\t|\t    Description \t    |\t   | Current value |" << endl
-					<< "(0):\t(Action)\tExit this menu and start the terminal" << endl
-					<< "(1):\t(Int)\t\tBaud rate" << "\t\t\t\t(" << baud << ")" << endl
-					<< "(1):\t(Int)\t\tParity" << "\t\t\t\t(" << []() -> string {
-					/*switch (parity)
+				//bool to string
+				auto btos = [](bool b)
+				{
+					return b ? "true" : "false";
+				};
+				//parity to string
+				auto paritytos = [](int parity) -> string
+				{
+					switch (parity)
 					{
 					case USBASP_UART_PARITY_NONE:
 						return "None";
@@ -506,36 +489,56 @@ int main(int argc, char** argv){
 					default:
 						return "";
 						break;
-					}*/return "2"; }
-					<< ")" << endl
-					<< "(1):\t(Int)\t\tNumber of stop bits" << "\t\t\t\t(" << stop/4 + 1 << ")" << endl
-					<< "(2):\t(Int)\t\tNumber of data bits" << "\t\t\t\t(" << 5+((USBASP_UART_BYTES_MASK&bits)>>3) << ")" << endl
-					<< "(3):\t(Bool)\t\tSingle byte mode" << "\t\t\t\t(" << btos(single_byte_mode) << ")" << endl
-					<< "(4):\t(Bool)\t\tRead continuously" << "\t\t\t\t(" << btos(should_read) << ")" << endl
-					<< "(5):\t(Bool)\t\tWrite continuously" << "\t\t\t\t(" << btos(should_write) << ")" << endl
-					<< "(6):\t(Bool)\t\tSend new line" << "\t\t\t\t\t(" << btos(sendNewline) << ")" << endl
-					<< "(7):\t(Bool)\t\tVerbose logging" << "\t\t\t\t\t(" << "ERROR" << ")" << endl
-					<< "(8):\t(Bool)\t\tTest read" << "\t\t\t\t\t(" << btos(should_test_read) << ")" << endl
-					<< "(9):\t(Bool)\t\tTest write" << "\t\t\t\t\t(" << btos(should_test_write) << ")" << endl
-					<< "(10):\t(Bool)\t\tSingle char output" << "\t\t\t\t(" << btos(single_char) << ")" << endl
+					}
+				};
+
+			EXTENDED_MENU_START:
+				input = 0;
+				//print all options:
+				cout << "All options:" << endl
+					<< "Pick a listed number, Bools and Ints with only two options get toggled directly!" << endl
+					<< endl
+					<< "Number\t| Type |\t|\t    Description \t    |\t   | Current value |" << endl
+					<< "(0):\t(Action)\tExit this menu and start the terminal" << endl
+					<< "(1):\t(Int)\t\tBaud rate" << "\t\t\t\t\t(" << baud << ")" << endl
+					<< "(2):\t(Int)\t\tParity" << "\t\t\t\t\t\t(" << paritytos(parity) << ")" << endl
+					<< "(3):\t(Int)\t\tNumber of stop bits" << "\t\t\t\t(" << stop / 4 + 1 << ")" << endl
+					<< "(4):\t(Int)\t\tNumber of data bits" << "\t\t\t\t(" << 5 + ((USBASP_UART_BYTES_MASK&bits) >> 3) << ")" << endl
+					<< "(5):\t(Bool)\t\tSingle byte mode" << "\t\t\t\t(" << btos(single_byte_mode) << ")" << endl
+					<< "(6):\t(Bool)\t\tRead continuously" << "\t\t\t\t(" << btos(should_read) << ")" << endl
+					<< "(7):\t(Bool)\t\tWrite continuously" << "\t\t\t\t(" << btos(should_write) << ")" << endl
+					<< "(8):\t(Bool)\t\tSend new line" << "\t\t\t\t\t(" << btos(sendNewline) << ")" << endl
+					<< "(9):\t(Bool)\t\tSingle char output" << "\t\t\t\t(" << btos(single_char) << ")" << endl
+					<< "(10):\t(Bool)\t\tVerbose logging" << "\t\t\t\t\t(" << btos(verbose) << ")" << endl
+					<< "(11):\t(Bool)\t\tTest read" << "\t\t\t\t\t(" << btos(should_test_read) << ")" << endl
+					<< "(12):\t(Bool)\t\tTest write" << "\t\t\t\t\t(" << btos(should_test_write) << ")" << endl
+					<< "(13):\t(Bool)\t\tClose connection on error" << "\t\t\t(" << btos(closeConnectionOnError) << ")" << endl
 					<< endl;
-				cin >> input;
-				cout << endl;
-				switch (input)
-				{
-				case 0:
-					goto MENU_EXIT;
-					break;
-				case 1:
-					//cout << "Set number of stop bits (1/2): ";
-					stop = (stop == USBASP_UART_STOP_1BIT ? USBASP_UART_STOP_2BIT : USBASP_UART_STOP_1BIT);
-					goto EXTENDED_MENU_START;
-					break;
-				case 2:
-					cout << "Set number of data bits (5-9): ";
 					cin >> input;
+					cout << endl;
 					switch (input)
 					{
+					case 0:
+						goto MENU_EXIT;
+						break;
+					case 1:
+						cout << "Baud rate: ";
+						cin >> baud;
+						goto EXTENDED_MENU_START;
+						break;
+					case 2:
+						goto EXTENDED_MENU_START;
+						break;
+					case 3:
+						//cout << "Set number of stop bits (1/2): ";
+						stop = (stop == USBASP_UART_STOP_1BIT ? USBASP_UART_STOP_2BIT : USBASP_UART_STOP_1BIT);
+						goto EXTENDED_MENU_START;
+						break;
+					case 4:
+						cout << "Set number of data bits (5-9): ";
+						cin >> input;
+						switch (input)
+						{
 						case 5:
 							bits = USBASP_UART_BYTES_5B;
 							break;
@@ -551,60 +554,88 @@ int main(int argc, char** argv){
 						case 9:
 							bits = USBASP_UART_BYTES_9B;
 							break;
+						default:
+							cout << "Invalid input, leaving everything as is" << endl;
+							break;
+						}
+						goto EXTENDED_MENU_START;
+						break;
+					case 5:
+						single_byte_mode = !single_byte_mode;
+						goto EXTENDED_MENU_START;
+						break;
+					case 6:
+						should_read = !should_read;
+						goto EXTENDED_MENU_START;
+						break;
+					case 7:
+						should_write = !should_write;
+						goto EXTENDED_MENU_START;
+						break;
+					case 8:
+						sendNewline = !sendNewline;
+						goto EXTENDED_MENU_START;
+						break;
+					case 9:
+						single_char = !single_char;
+						goto EXTENDED_MENU_START;
+						break;
+					case 10:
+						verbose = !verbose;
+						goto EXTENDED_MENU_START;
+						break;
+					case 11:
+						should_test_read = !should_test_read;
+						goto EXTENDED_MENU_START;
+						break;
+					case 12:
+						should_test_write = !should_test_write;
+						goto EXTENDED_MENU_START;
+						break;
+					case 13:
+						closeConnectionOnError = !closeConnectionOnError;
+						goto EXTENDED_MENU_START;
+						break;
 					default:
-						cout << "Invalid input, leaving everything as is" << endl;
+						cout << "Invalid input!" << endl;
+						goto EXTENDED_MENU_START;
 						break;
 					}
-					goto EXTENDED_MENU_START;
-					break;
-				case 3:
-					single_byte_mode = !single_byte_mode;
-					goto EXTENDED_MENU_START;
-					break;
-				case 4:
-					should_read = !should_read;
-					goto EXTENDED_MENU_START;
-					break;
-				case 5:
-					should_write = !should_write;
-					goto EXTENDED_MENU_START;
-					break;
-				case 6:
-					sendNewline = !sendNewline;
-					goto EXTENDED_MENU_START;
-					break;
-				case 7:
-					verbose;
-					goto EXTENDED_MENU_START;
-					break;
-				case 8:
-					should_test_read = !should_test_read;
-					goto EXTENDED_MENU_START;
-					break;
-				case 9:
-					should_test_write = !should_test_write;
-					goto EXTENDED_MENU_START;
-					break;
-				case 10:
-					single_char = !single_char;
-					goto EXTENDED_MENU_START;
-					break;
-				default:
-					goto EXTENDED_MENU_START;
-					break;
-				}
-			MENU_EXIT:
-				cin.get();
+				MENU_EXIT:
+					cin.get();
 			}
 			else
 				goto OPTIONS_START;
 		}
 	}
+	
+	//save settings:
+	settings.open("settings.txt", ios::out | ios::trunc);
+
+	if (settings.is_open())
+	{
+		settings.clear();
+		settings << baud << '\n';	//Baud
+		settings << parity << '\n';	//Parity
+		settings << stop << '\n';	//Stop bits
+		settings << bits << '\n';	//Data bits
+		settings << single_byte_mode << '\n';	//Single byte
+		settings << should_read << '\n';	//Read cont.
+		settings << should_write << '\n';	//Write cont.
+		settings << sendNewline << '\n';	//Send '\n'
+		settings << single_char << '\n';	//Single char
+		settings << verbose << '\n';	//Verbose
+		settings << should_test_read << '\n';	//Test read
+		settings << should_test_write << '\n';	//Test write
+		settings << closeConnectionOnError << '\n';	//Test write
+		settings.close();
+	}
 
 	USBasp_UART usbasp;
 	usbasp.usbhandle = NULL;
 	int rv;
-	if((rv=usbasp_uart_config(&usbasp, baud, parity | bits | stop)) < 0){
+	if ((rv = usbasp_uart_config(&usbasp, baud, parity | bits | stop)) < 0)
+	{
 		std::cerr << "Error " << rv << " while initializing USBasp" << std::endl;
 		switch (rv)
 		{
@@ -621,36 +652,24 @@ int main(int argc, char** argv){
 		std::cin.get();
 		return -1;
 	}
-	if(should_test_write){
+	if (should_test_write) {
 		std::cerr << "Writing..." << std::endl;
 		writeTest(&usbasp, test_size);
 	}
-	if(should_test_read){
+	if (should_test_read) {
 		std::cerr << "Reading..." << std::endl;
 		readTest(&usbasp, test_size);
 	}
+
 	std::vector<std::thread> threads;
-	if(should_read){
-		threads.push_back(std::thread([&]{read_forever(&usbasp);}));
+	if (should_read) {
+		threads.push_back(std::thread([&] {read_forever(&usbasp); }));
 	}
-	if(should_write){
-		threads.push_back(std::thread([&]{write_forever(&usbasp);}));
+	if (should_write) {
+		threads.push_back(std::thread([&] {write_forever(&usbasp); }));
 	}
-	for(auto& thr : threads){
+	for (auto& thr : threads) {
 		thr.join();
 	}
-
 	cin.get();
-}
-
-//parity to string
-paritytos(int parity)
-{
-
-}
-
-//bool to string
-string btos(bool b)
-{
-	return b ? "true" : "false";
 }

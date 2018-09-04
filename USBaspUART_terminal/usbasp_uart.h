@@ -16,7 +16,7 @@ typedef struct USBasp_UART{
 	libusb_device_handle* usbhandle;
 } USBasp_UART;
 
-extern int verbose;
+extern bool verbose;
 
 #ifdef __cplusplus
 extern "C"{
